@@ -24,6 +24,15 @@ public class AuthController {
 
     @PostMapping("/api/auth/register")
     public Map<String, Object> register(@RequestBody RegisterRequest request) {
+
+        if (userRepository.existsByUsername(request.getUsername())) {
+            return Map.of("error", "Username already taken");
+        }
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            return Map.of("error", "Email already taken");
+        }
+
         String hashedPassword = passwordEncoder.encode(request.getPassword());
 
         AppUser newUser = new AppUser(request.getUsername(), request.getEmail(), hashedPassword);
