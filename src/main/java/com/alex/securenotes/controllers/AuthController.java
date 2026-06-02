@@ -2,6 +2,7 @@ package com.alex.securenotes.controllers;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.alex.securenotes.dto.LoginRequest;
 import com.alex.securenotes.dto.RegisterRequest;
 import com.alex.securenotes.model.AppUser;
 import com.alex.securenotes.repository.AppUserRepository;
@@ -32,15 +34,7 @@ public class AuthController {
     @PostMapping("/api/auth/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request, BindingResult bindingResult) {
         if (bindingResult.hasErrors()) {
-            Map<String, String> errors = new LinkedHashMap<>();
-
-            for (FieldError fieldError : bindingResult.getFieldErrors()) {
-                errors.put(fieldError.getField(), fieldError.getDefaultMessage());
-            }
-
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("errors", errors));
+            return validationErrorResponse(bindingResult);
         }
 
         if (userRepository.existsByUsername(request.getUsername())) {
@@ -73,5 +67,54 @@ public class AuthController {
                         "username", savedUser.getUsername(),
                         "email", savedUser.getEmail()
                 ));
+    }
+
+    @PostMapping("/api/auth/login")
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, BindingResult bindingResult) {
+        if (bindingResult.hasErrors()) {
+            return validationErrorResponse(bindingResult);
+        }
+
+        Optional<AppUser> optionalUser = userRepository.findByUsername(request.getUsername());
+
+        if (optionalUser.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid username or password"));
+        }
+
+        AppUser user = optionalUser.get();
+
+        boolean passwordMatches = passwordEncoder.matches(
+                request.getPassword(),
+                user.getPasswordHash()
+        );
+
+        if (!passwordMatches) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid username or password"));
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(Map.of(
+                        "message", "Login successful",
+                        "id", user.getId(),
+                        "username", user.getUsername(),
+                        "email", user.getEmail()
+                ));
+    }
+
+    private ResponseEntity<?> validationErrorResponse(BindingResult bindingResult) {
+        Map<String, String> errors = new LinkedHashMap<>();
+
+        for (FieldError fieldError : bindingResult.getFieldErrors()) {
+            errors.put(fieldError.getField(), fieldError.getDefaultMessage());
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errors", errors));
     }
 }
