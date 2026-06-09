@@ -17,6 +17,7 @@ import com.alex.securenotes.dto.LoginRequest;
 import com.alex.securenotes.dto.RegisterRequest;
 import com.alex.securenotes.model.AppUser;
 import com.alex.securenotes.repository.AppUserRepository;
+import com.alex.securenotes.service.JwtService;
 
 import jakarta.validation.Valid;
 
@@ -25,11 +26,13 @@ public class AuthController {
 
     private final AppUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public AuthController(AppUserRepository userRepository, PasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
+public AuthController(AppUserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    this.userRepository = userRepository;
+    this.passwordEncoder = passwordEncoder;
+    this.jwtService = jwtService;
+}
 
     @PostMapping("/api/auth/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request, BindingResult bindingResult) {
@@ -59,6 +62,8 @@ public class AuthController {
 
         AppUser savedUser = userRepository.save(newUser);
 
+        String token = jwtService.generateToken(savedUser);
+
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(Map.of(
@@ -66,7 +71,7 @@ public class AuthController {
                         "id", savedUser.getId(),
                         "username", savedUser.getUsername(),
                         "email", savedUser.getEmail()
-                ));
+                    ));
     }
 
     @PostMapping("/api/auth/login")
@@ -96,10 +101,13 @@ public class AuthController {
                     .body(Map.of("error", "Invalid username or password"));
         }
 
+        String token = jwtService.generateToken(user);
+
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(Map.of(
                         "message", "Login successful",
+                        "token", token,
                         "id", user.getId(),
                         "username", user.getUsername(),
                         "email", user.getEmail()
