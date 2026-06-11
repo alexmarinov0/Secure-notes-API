@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import com.alex.securenotes.model.AppUser;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 
@@ -39,5 +40,17 @@ public class JwtService {
                 .expiration(expirationDate)
                 .signWith(secretKey)
                 .compact();
+    }
+
+    public String extractUsername(String token) {
+        return extractAllClaims(token).getSubject();
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(secretKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }
