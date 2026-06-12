@@ -19,22 +19,18 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.alex.securenotes.dto.NoteRequest;
-import com.alex.securenotes.model.AppUser;
 import com.alex.securenotes.model.Note;
-import com.alex.securenotes.repository.AppUserRepository;
-import com.alex.securenotes.repository.NoteRepository;
+import com.alex.securenotes.service.NoteService;
 
 import jakarta.validation.Valid;
 
 @RestController
 public class NoteController {
 
-    private final NoteRepository noteRepository;
-    private final AppUserRepository userRepository;
+    private final NoteService noteService;
 
-    public NoteController(NoteRepository noteRepository, AppUserRepository userRepository) {
-        this.noteRepository = noteRepository;
-        this.userRepository = userRepository;
+    public NoteController(NoteService noteService) {
+        this.noteService = noteService;
     }
 
     @PostMapping("/api/notes")
@@ -49,34 +45,24 @@ public class NoteController {
 
         String username = authentication.getName();
 
-        Optional<AppUser> optionalUser = userRepository.findByUsername(username);
+        Optional<Note> optionalNote = noteService.createNote(username, request);
 
-        if (optionalUser.isEmpty()) {
+        if (optionalNote.isEmpty()) {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "User not found"));
         }
 
-        AppUser owner = optionalUser.get();
-
-        Note note = new Note(
-                request.getTitle(),
-                request.getContent(),
-                owner
-        );
-
-        Note savedNote = noteRepository.save(note);
-
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(noteResponse(savedNote));
+                .body(noteResponse(optionalNote.get()));
     }
 
     @GetMapping("/api/notes")
     public ResponseEntity<?> getNotes(Authentication authentication) {
         String username = authentication.getName();
 
-        List<Note> notes = noteRepository.findByOwnerUsername(username);
+        List<Note> notes = noteService.getNotes(username);
 
         List<Map<String, Object>> response = notes.stream()
                 .map(this::noteResponse)
@@ -92,7 +78,7 @@ public class NoteController {
     ) {
         String username = authentication.getName();
 
-        Optional<Note> optionalNote = noteRepository.findByIdAndOwnerUsername(id, username);
+        Optional<Note> optionalNote = noteService.getNoteById(id, username);
 
         if (optionalNote.isEmpty()) {
             return ResponseEntity
@@ -105,54 +91,45 @@ public class NoteController {
 
     @PutMapping("/api/notes/{id}")
     public ResponseEntity<?> updateNote(
-        @PathVariable Long id,
-        @Valid @RequestBody NoteRequest request,
-        BindingResult bindingResult,
-        Authentication authentication
+            @PathVariable Long id,
+            @Valid @RequestBody NoteRequest request,
+            BindingResult bindingResult,
+            Authentication authentication
     ) {
-    if (bindingResult.hasErrors()) {
-        return validationErrorResponse(bindingResult);
+        if (bindingResult.hasErrors()) {
+            return validationErrorResponse(bindingResult);
+        }
+
+        String username = authentication.getName();
+
+        Optional<Note> optionalNote = noteService.updateNote(id, username, request);
+
+        if (optionalNote.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Note not found"));
+        }
+
+        return ResponseEntity.ok(noteResponse(optionalNote.get()));
     }
-
-    String username = authentication.getName();
-
-    Optional<Note> optionalNote = noteRepository.findByIdAndOwnerUsername(id, username);
-
-    if (optionalNote.isEmpty()) {
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "Note not found"));
-    }
-
-    Note note = optionalNote.get();
-
-    note.setTitle(request.getTitle());
-    note.setContent(request.getContent());
-
-    Note savedNote = noteRepository.save(note);
-
-    return ResponseEntity.ok(noteResponse(savedNote));
-}
 
     @DeleteMapping("/api/notes/{id}")
     public ResponseEntity<?> deleteNote(
-        @PathVariable Long id,
-        Authentication authentication
+            @PathVariable Long id,
+            Authentication authentication
     ) {
-    String username = authentication.getName();
+        String username = authentication.getName();
 
-    Optional<Note> optionalNote = noteRepository.findByIdAndOwnerUsername(id, username);
+        boolean deleted = noteService.deleteNote(id, username);
 
-    if (optionalNote.isEmpty()) {
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(Map.of("error", "Note not found"));
+        if (!deleted) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "Note not found"));
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Note deleted successfully"));
     }
-
-    noteRepository.delete(optionalNote.get());
-
-    return ResponseEntity.ok(Map.of("message", "Note deleted successfully"));
-}
 
     private Map<String, Object> noteResponse(Note note) {
         return Map.of(
