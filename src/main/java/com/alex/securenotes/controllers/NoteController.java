@@ -18,7 +18,11 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.alex.securenotes.dto.ErrorResponse;
+import com.alex.securenotes.dto.MessageResponse;
 import com.alex.securenotes.dto.NoteRequest;
+import com.alex.securenotes.dto.NoteResponse;
+import com.alex.securenotes.dto.ValidationErrorResponse;
 import com.alex.securenotes.model.Note;
 import com.alex.securenotes.service.NoteService;
 
@@ -50,7 +54,7 @@ public class NoteController {
         if (optionalNote.isEmpty()) {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "User not found"));
+                    .body(new ErrorResponse("User not found"));
         }
 
         return ResponseEntity
@@ -64,7 +68,7 @@ public class NoteController {
 
         List<Note> notes = noteService.getNotes(username);
 
-        List<Map<String, Object>> response = notes.stream()
+        List<NoteResponse> response = notes.stream()
                 .map(this::noteResponse)
                 .toList();
 
@@ -83,7 +87,7 @@ public class NoteController {
         if (optionalNote.isEmpty()) {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Note not found"));
+                    .body(new ErrorResponse("Note not found"));
         }
 
         return ResponseEntity.ok(noteResponse(optionalNote.get()));
@@ -107,7 +111,7 @@ public class NoteController {
         if (optionalNote.isEmpty()) {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Note not found"));
+                    .body(new ErrorResponse("Note not found"));
         }
 
         return ResponseEntity.ok(noteResponse(optionalNote.get()));
@@ -125,17 +129,17 @@ public class NoteController {
         if (!deleted) {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "Note not found"));
+                    .body(new ErrorResponse("Note not found"));
         }
 
-        return ResponseEntity.ok(Map.of("message", "Note deleted successfully"));
+        return ResponseEntity.ok(new MessageResponse("Note deleted successfully"));
     }
 
-    private Map<String, Object> noteResponse(Note note) {
-        return Map.of(
-                "id", note.getId(),
-                "title", note.getTitle(),
-                "content", note.getContent()
+    private NoteResponse noteResponse(Note note) {
+        return new NoteResponse(
+                note.getId(),
+                note.getTitle(),
+                note.getContent()
         );
     }
 
@@ -148,6 +152,6 @@ public class NoteController {
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("errors", errors));
+                .body(new ValidationErrorResponse(errors));
     }
 }

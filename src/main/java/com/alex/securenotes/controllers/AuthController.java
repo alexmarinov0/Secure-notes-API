@@ -12,8 +12,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.alex.securenotes.dto.ErrorResponse;
 import com.alex.securenotes.dto.LoginRequest;
+import com.alex.securenotes.dto.LoginResponse;
 import com.alex.securenotes.dto.RegisterRequest;
+import com.alex.securenotes.dto.RegisterResponse;
+import com.alex.securenotes.dto.ValidationErrorResponse;
 import com.alex.securenotes.model.AppUser;
 import com.alex.securenotes.service.AuthService;
 import com.alex.securenotes.service.AuthService.LoginResult;
@@ -38,25 +42,27 @@ public class AuthController {
         if (authService.usernameExists(request.getUsername())) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Username already taken"));
+                    .body(new ErrorResponse("Username already taken"));
         }
 
         if (authService.emailExists(request.getEmail())) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Email already taken"));
+                    .body(new ErrorResponse("Email already taken"));
         }
 
         AppUser savedUser = authService.register(request);
 
+        RegisterResponse response = new RegisterResponse(
+                "User registered successfully",
+                savedUser.getId(),
+                savedUser.getUsername(),
+                savedUser.getEmail()
+        );
+
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(Map.of(
-                        "message", "User registered successfully",
-                        "id", savedUser.getId(),
-                        "username", savedUser.getUsername(),
-                        "email", savedUser.getEmail()
-                ));
+                .body(response);
     }
 
     @PostMapping("/api/auth/login")
@@ -70,21 +76,23 @@ public class AuthController {
         if (optionalLoginResult.isEmpty()) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid username or password"));
+                    .body(new ErrorResponse("Invalid username or password"));
         }
 
         LoginResult loginResult = optionalLoginResult.get();
         AppUser user = loginResult.user();
 
+        LoginResponse response = new LoginResponse(
+                "Login successful",
+                loginResult.token(),
+                user.getId(),
+                user.getUsername(),
+                user.getEmail()
+        );
+
         return ResponseEntity
                 .status(HttpStatus.OK)
-                .body(Map.of(
-                        "message", "Login successful",
-                        "token", loginResult.token(),
-                        "id", user.getId(),
-                        "username", user.getUsername(),
-                        "email", user.getEmail()
-                ));
+                .body(response);
     }
 
     private ResponseEntity<?> validationErrorResponse(BindingResult bindingResult) {
@@ -96,6 +104,6 @@ public class AuthController {
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("errors", errors));
+                .body(new ValidationErrorResponse(errors));
     }
 }
