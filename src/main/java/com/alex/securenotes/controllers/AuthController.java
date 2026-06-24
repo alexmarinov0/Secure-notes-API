@@ -6,7 +6,6 @@ import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,23 +15,19 @@ import org.springframework.web.bind.annotation.RestController;
 import com.alex.securenotes.dto.LoginRequest;
 import com.alex.securenotes.dto.RegisterRequest;
 import com.alex.securenotes.model.AppUser;
-import com.alex.securenotes.repository.AppUserRepository;
-import com.alex.securenotes.service.JwtService;
+import com.alex.securenotes.service.AuthService;
+import com.alex.securenotes.service.AuthService.LoginResult;
 
 import jakarta.validation.Valid;
 
 @RestController
 public class AuthController {
 
-    private final AppUserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
+    private final AuthService authService;
 
-public AuthController(AppUserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
-    this.userRepository = userRepository;
-    this.passwordEncoder = passwordEncoder;
-    this.jwtService = jwtService;
-}
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @PostMapping("/api/auth/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request, BindingResult bindingResult) {
@@ -40,29 +35,19 @@ public AuthController(AppUserRepository userRepository, PasswordEncoder password
             return validationErrorResponse(bindingResult);
         }
 
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (authService.usernameExists(request.getUsername())) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body(Map.of("error", "Username already taken"));
         }
 
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (authService.emailExists(request.getEmail())) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body(Map.of("error", "Email already taken"));
         }
 
-        String hashedPassword = passwordEncoder.encode(request.getPassword());
-
-        AppUser newUser = new AppUser(
-                request.getUsername(),
-                request.getEmail(),
-                hashedPassword
-        );
-
-        AppUser savedUser = userRepository.save(newUser);
-
-        String token = jwtService.generateToken(savedUser);
+        AppUser savedUser = authService.register(request);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -71,7 +56,7 @@ public AuthController(AppUserRepository userRepository, PasswordEncoder password
                         "id", savedUser.getId(),
                         "username", savedUser.getUsername(),
                         "email", savedUser.getEmail()
-                    ));
+                ));
     }
 
     @PostMapping("/api/auth/login")
@@ -80,34 +65,22 @@ public AuthController(AppUserRepository userRepository, PasswordEncoder password
             return validationErrorResponse(bindingResult);
         }
 
-        Optional<AppUser> optionalUser = userRepository.findByUsername(request.getUsername());
+        Optional<LoginResult> optionalLoginResult = authService.login(request);
 
-        if (optionalUser.isEmpty()) {
+        if (optionalLoginResult.isEmpty()) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid username or password"));
         }
 
-        AppUser user = optionalUser.get();
-
-        boolean passwordMatches = passwordEncoder.matches(
-                request.getPassword(),
-                user.getPasswordHash()
-        );
-
-        if (!passwordMatches) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid username or password"));
-        }
-
-        String token = jwtService.generateToken(user);
+        LoginResult loginResult = optionalLoginResult.get();
+        AppUser user = loginResult.user();
 
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(Map.of(
                         "message", "Login successful",
-                        "token", token,
+                        "token", loginResult.token(),
                         "id", user.getId(),
                         "username", user.getUsername(),
                         "email", user.getEmail()
