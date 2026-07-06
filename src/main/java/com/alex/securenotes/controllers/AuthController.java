@@ -1,13 +1,9 @@
 package com.alex.securenotes.controllers;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,7 +13,6 @@ import com.alex.securenotes.dto.LoginRequest;
 import com.alex.securenotes.dto.LoginResponse;
 import com.alex.securenotes.dto.RegisterRequest;
 import com.alex.securenotes.dto.RegisterResponse;
-import com.alex.securenotes.dto.ValidationErrorResponse;
 import com.alex.securenotes.model.AppUser;
 import com.alex.securenotes.service.AuthService;
 import com.alex.securenotes.service.AuthService.LoginResult;
@@ -34,10 +29,7 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request, BindingResult bindingResult) {
-        if (bindingResult.hasErrors()) {
-            return validationErrorResponse(bindingResult);
-        }
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
 
         if (authService.usernameExists(request.getUsername())) {
             return ResponseEntity
@@ -66,11 +58,7 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, BindingResult bindingResult) {
-        if (bindingResult.hasErrors()) {
-            return validationErrorResponse(bindingResult);
-        }
-
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         Optional<LoginResult> optionalLoginResult = authService.login(request);
 
         if (optionalLoginResult.isEmpty()) {
@@ -93,17 +81,5 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .body(response);
-    }
-
-    private ResponseEntity<?> validationErrorResponse(BindingResult bindingResult) {
-        Map<String, String> errors = new LinkedHashMap<>();
-
-        for (FieldError fieldError : bindingResult.getFieldErrors()) {
-            errors.put(fieldError.getField(), fieldError.getDefaultMessage());
-        }
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new ValidationErrorResponse(errors));
     }
 }

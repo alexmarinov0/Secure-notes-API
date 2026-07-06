@@ -1,15 +1,11 @@
 package com.alex.securenotes.controllers;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.validation.BindingResult;
-import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,7 +18,6 @@ import com.alex.securenotes.dto.ErrorResponse;
 import com.alex.securenotes.dto.MessageResponse;
 import com.alex.securenotes.dto.NoteRequest;
 import com.alex.securenotes.dto.NoteResponse;
-import com.alex.securenotes.dto.ValidationErrorResponse;
 import com.alex.securenotes.model.Note;
 import com.alex.securenotes.service.NoteService;
 
@@ -39,13 +34,9 @@ public class NoteController {
 
     @PostMapping("/api/notes")
     public ResponseEntity<?> createNote(
-            @Valid @RequestBody NoteRequest request,
-            BindingResult bindingResult,
-            Authentication authentication
+        @Valid @RequestBody NoteRequest request,
+        Authentication authentication
     ) {
-        if (bindingResult.hasErrors()) {
-            return validationErrorResponse(bindingResult);
-        }
 
         String username = authentication.getName();
 
@@ -95,14 +86,10 @@ public class NoteController {
 
     @PutMapping("/api/notes/{id}")
     public ResponseEntity<?> updateNote(
-            @PathVariable Long id,
-            @Valid @RequestBody NoteRequest request,
-            BindingResult bindingResult,
-            Authentication authentication
+        @PathVariable Long id,
+        @Valid @RequestBody NoteRequest request,
+        Authentication authentication
     ) {
-        if (bindingResult.hasErrors()) {
-            return validationErrorResponse(bindingResult);
-        }
 
         String username = authentication.getName();
 
@@ -141,17 +128,5 @@ public class NoteController {
                 note.getTitle(),
                 note.getContent()
         );
-    }
-
-    private ResponseEntity<?> validationErrorResponse(BindingResult bindingResult) {
-        Map<String, String> errors = new LinkedHashMap<>();
-
-        for (FieldError fieldError : bindingResult.getFieldErrors()) {
-            errors.put(fieldError.getField(), fieldError.getDefaultMessage());
-        }
-
-        return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
-                .body(new ValidationErrorResponse(errors));
     }
 }
