@@ -1,5 +1,6 @@
 package com.alex.securenotes.model;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -7,12 +8,18 @@ import jakarta.persistence.Id;
 
 @Entity
 public class AppUser {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true, length = 20)
     private String username;
+
+    @Column(nullable = false, unique = true)
     private String email;
+
+    @Column(nullable = false)
     private String passwordHash;
 
     public AppUser() {
@@ -55,5 +62,4 @@ public class AppUser {
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
     }
-
 }
